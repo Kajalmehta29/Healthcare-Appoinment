@@ -17,6 +17,7 @@ model User {
   createdAt      DateTime        @default(now())
   doctorProfile  DoctorProfile?
   patientProfile PatientProfile?
+  googleOauth    GoogleOauth?
 }
 
 model DoctorProfile {
@@ -71,6 +72,7 @@ model Appointment {
   consultation   Consultation?
   prescription   Prescription?
   aiSummary      AISummary?
+  calendarEvent  CalendarEvent?
 }
 
 model SymptomSubmission {
@@ -81,6 +83,7 @@ model SymptomSubmission {
   urgency            String          // "Low" | "Medium" | "High" | "PENDING" | "FAILED"
   chiefComplaint     String
   suggestedQuestions String          // Serialized JSON array of strings
+  aiStatus           String          @default("SUCCESS") // "PENDING" | "SUCCESS" | "FAILED"
   createdAt          DateTime        @default(now())
 }
 
@@ -138,5 +141,26 @@ model Notification {
   type           String
   message        String
   read           Boolean         @default(false)
+  emailStatus    String          @default("SENT") // "PENDING" | "SENT" | "FAILED"
   createdAt      DateTime        @default(now())
+}
+
+model CalendarEvent {
+  id             String          @id @default(uuid())
+  appointmentId  String          @unique
+  appointment    Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  googleEventId  String
+  htmlLink       String?
+  createdAt      DateTime        @default(now())
+}
+
+model GoogleOauth {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String?
+  expiryDate   String?  // Storing as string to handle large integers easily
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

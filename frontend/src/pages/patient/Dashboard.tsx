@@ -30,6 +30,7 @@ export const PatientDashboard: React.FC = () => {
 
   // Horizontal Date Slider State (7 days around today)
   const [dateList, setDateList] = useState<{ dayName: string; dayNum: number; dateStr: string; isToday: boolean }[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const fetchAppointments = async () => {
     if (!patientProfile) return;
@@ -98,6 +99,26 @@ export const PatientDashboard: React.FC = () => {
   const upcomingApts = appointments.filter(apt => apt.status === 'CONFIRMED' || apt.status === 'HELD');
   const pastApts = appointments.filter(apt => apt.status === 'COMPLETED' || apt.status.startsWith('CANCEL'));
   const completedConsultations = appointments.filter(apt => apt.status === 'COMPLETED');
+
+  // Calculate dynamic adherence index based on appointment completion
+  const getAdherenceIndex = () => {
+    const completed = appointments.filter(a => a.status === 'COMPLETED').length;
+    const cancelled = appointments.filter(a => a.status === 'CANCELLED' || a.status === 'CANCELLED_BY_DOCTOR_LEAVE').length;
+    const total = completed + cancelled;
+    
+    if (total === 0) return { score: 100, label: 'Optimal Compliance', color: '#10b981', textClass: 'text-emerald-500' };
+    
+    const score = Math.round((completed / total) * 100);
+    if (score >= 85) {
+      return { score, label: 'Optimal Compliance', color: '#10b981', textClass: 'text-emerald-500' };
+    } else if (score >= 60) {
+      return { score, label: 'Satisfactory Adherence', color: '#f59e0b', textClass: 'text-amber-500' };
+    } else {
+      return { score, label: 'Action Required', color: '#f43f5e', textClass: 'text-rose-500' };
+    }
+  };
+
+  const adherence = getAdherenceIndex();
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -185,20 +206,20 @@ export const PatientDashboard: React.FC = () => {
             <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Adherence Index</span>
-                <span className="text-lg font-bold text-slate-900">92%</span>
-                <span className="text-[9px] text-emerald-500 font-bold block">Optimal Compliance</span>
+                <span className="text-lg font-bold text-slate-900">{adherence.score}%</span>
+                <span className={`text-[9px] font-bold block ${adherence.textClass}`}>{adherence.label}</span>
               </div>
               <div className="relative flex items-center justify-center shrink-0">
                 <svg className="w-14 h-14 transform -rotate-90">
                   <circle cx="28" cy="28" r="22" stroke="#f1f5f9" strokeWidth="4" fill="transparent" />
-                  <circle cx="28" cy="28" r="22" stroke="#10b981" strokeWidth="4" fill="transparent" 
+                  <circle cx="28" cy="28" r="22" stroke={adherence.color} strokeWidth="4" fill="transparent" 
                     strokeDasharray={138.2} 
-                    strokeDashoffset={138.2 - (138.2 * 92) / 100}
+                    strokeDashoffset={138.2 - (138.2 * adherence.score) / 100}
                     strokeLinecap="round"
                     className="transition-all duration-500"
                   />
                 </svg>
-                <span className="absolute text-[10px] font-extrabold text-slate-800">92%</span>
+                <span className="absolute text-[10px] font-extrabold text-slate-800">{adherence.score}%</span>
               </div>
             </div>
           </div>
@@ -337,39 +358,108 @@ export const PatientDashboard: React.FC = () => {
                 </div>
                 
                 <div className="flex justify-between items-center gap-1.5 pt-1">
-                  {dateList.map((d, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`flex flex-col items-center p-2 rounded-xl text-center flex-1 cursor-pointer transition-all ${
-                        d.isToday 
-                          ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 scale-105' 
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      <span className="text-[9px] font-bold block">{d.dayName}</span>
-                      <span className="text-xs font-extrabold block mt-0.5">{d.dayNum}</span>
-                    </div>
-                  ))}
+                  {dateList.map((d, idx) => {
+                    const isSelected = d.dateStr === selectedDate;
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => setSelectedDate(d.dateStr)}
+                        className={`flex flex-col items-center p-2 rounded-xl text-center flex-1 cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 scale-105' 
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <span className="text-[9px] font-bold block">{d.dayName}</span>
+                        <span className="text-xs font-extrabold block mt-0.5">{d.dayNum}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Active Prescribed Meds */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <h3 className="font-bold text-slate-950 flex items-center mb-4">
-                  <Pill className="h-5 w-5 text-brand-500 mr-2" /> Active Medications
+              {/* Tasks Due on Selected Date */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 className="font-bold text-slate-950 flex items-center text-xs uppercase tracking-wider">
+                  <Activity className="h-4 w-4 text-brand-500 mr-2" /> 
+                  Tasks Due: {new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </h3>
-                {activeMedications.length === 0 ? (
-                  <p className="text-xs text-slate-400 leading-relaxed py-6 text-center">No active medication records. Medications prescribed during completed consultation visits will appear here.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {activeMedications.map((med) => (
-                      <div key={med.id} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                        <p className="text-sm font-semibold text-slate-800">{med.name} <span className="text-xs font-normal text-slate-500">({med.dosage})</span></p>
-                        <p className="text-xs text-slate-500 flex items-center"><Clock className="h-3.5 w-3.5 mr-1 text-slate-400" /> {med.frequency} • {med.duration}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+
+                {/* Due Appointments */}
+                {(() => {
+                  const dayApts = appointments.filter(apt => 
+                    apt.date === selectedDate && 
+                    (apt.status === 'CONFIRMED' || apt.status === 'HELD' || apt.status === 'COMPLETED')
+                  );
+
+                  const targetDate = new Date(selectedDate);
+                  targetDate.setHours(0,0,0,0);
+                  const dayMeds: any[] = [];
+                  appointments.forEach(apt => {
+                    if (apt.status === 'COMPLETED' && apt.prescription && apt.prescription.medications) {
+                      const startDate = new Date(apt.date);
+                      startDate.setHours(0,0,0,0);
+                      
+                      apt.prescription.medications.forEach(med => {
+                        const durationDays = parseInt(med.duration) || 5;
+                        const endDate = new Date(startDate);
+                        endDate.setDate(endDate.getDate() + durationDays);
+
+                        if (targetDate >= startDate && targetDate <= endDate) {
+                          dayMeds.push(med);
+                        }
+                      });
+                    }
+                  });
+
+                  if (dayApts.length === 0 && dayMeds.length === 0) {
+                    return (
+                      <p className="text-xs text-slate-400 leading-relaxed py-6 text-center">
+                        No appointments or prescribed medication reminders due on this date.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Render Appointments */}
+                      {dayApts.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Scheduled Consultations</span>
+                          {dayApts.map(apt => (
+                            <div key={apt.id} className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-extrabold text-slate-900">{apt.doctor?.name}</p>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">{apt.startTime} - {apt.endTime} • {apt.doctor?.specialization}</p>
+                              </div>
+                              {getStatusBadge(apt.status)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Render Medications */}
+                      {dayMeds.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Active Medications</span>
+                          {dayMeds.map(med => (
+                            <div key={med.id} className="p-3 bg-[#e8f5e9]/40 border border-[#c8e6c9]/60 rounded-2xl flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-extrabold text-slate-800">{med.name}</p>
+                                <p className="text-[10px] text-slate-500 flex items-center mt-0.5">
+                                  <Clock className="h-3 w-3 mr-1 text-slate-400" /> {med.dosage} • {med.frequency}
+                                </p>
+                              </div>
+                              <span className="text-[9px] bg-white border border-[#c8e6c9] text-[#2e7d32] font-extrabold px-1.5 py-0.5 rounded-lg">
+                                Active
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
             </div>

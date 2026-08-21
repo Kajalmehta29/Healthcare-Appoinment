@@ -141,6 +141,11 @@ export const api = {
       await axiosInstance.post(`/appointments/${id}/cancel`);
     },
 
+    reschedule: async (id: string, newDate: string, newStartTime: string, newEndTime: string): Promise<Appointment> => {
+      const response = await axiosInstance.post(`/appointments/${id}/reschedule`, { newDate, newStartTime, newEndTime });
+      return response.data;
+    },
+
     submitConsultation: async (appointmentId: string, data: { notes: string; medications: Omit<Medication, 'id' | 'prescriptionId'>[]; followUp: string }): Promise<void> => {
       await axiosInstance.post(`/appointments/${appointmentId}/consultation`, data);
     }

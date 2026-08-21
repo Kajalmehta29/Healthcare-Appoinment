@@ -8,6 +8,7 @@ import { PatientDashboard } from './pages/patient/Dashboard';
 import { PatientHistory } from './pages/patient/History';
 import { BookAppointment } from './pages/patient/BookAppointment';
 import { DoctorQueue } from './pages/doctor/Queue';
+import { DoctorQueuesList } from './pages/doctor/QueuesList';
 import { DoctorHistory } from './pages/doctor/History';
 import { DoctorSettings } from './pages/doctor/Settings';
 import { PatientSettings } from './pages/patient/Settings';
@@ -111,6 +112,14 @@ export const App: React.FC = () => {
             element={
               <DashboardLayout allowedRoles={['DOCTOR']}>
                 <DoctorQueue />
+              </DashboardLayout>
+            } 
+          />
+          <Route 
+            path="/doctor/queues" 
+            element={
+              <DashboardLayout allowedRoles={['DOCTOR']}>
+                <DoctorQueuesList />
               </DashboardLayout>
             } 
           />

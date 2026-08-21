@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Appointment } from '../../types';
-import { 
-  Calendar, 
-  Clipboard, 
-  User as UserIcon, 
-  Clock, 
-  CheckCircle, 
-  Stethoscope, 
+import {
+  Calendar,
+  Clipboard,
+  User as UserIcon,
+  Clock,
+  CheckCircle,
+  Stethoscope,
   AlertTriangle,
   ChevronRight,
   TrendingUp,
@@ -33,7 +34,7 @@ export const DoctorQueue: React.FC = () => {
       alert('Failed to resume duty early.');
     }
   };
-  
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [allApts, setAllApts] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,7 +159,7 @@ export const DoctorQueue: React.FC = () => {
             Here are your scheduled appointments and clinical parameters for today. Review urgency levels and translate prescriptions easily.
           </p>
         </div>
-        <button 
+        <button
           onClick={fetchQueue}
           className="px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white font-semibold text-xs rounded-xl backdrop-blur transition-all flex items-center z-10 self-start md:self-auto"
         >
@@ -213,13 +214,18 @@ export const DoctorQueue: React.FC = () => {
 
           {/* Core Layout split */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
+
             {/* Left 2 Columns: Patients list cards */}
             <div className="lg:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-900 text-lg flex items-center">
-                  <Clipboard className="h-5 w-5 text-brand-500 mr-2" /> Daily Patient Queue
-                </h3>
+                <div className="flex items-center space-x-3">
+                  <h3 className="font-bold text-slate-900 text-lg flex items-center">
+                    <Clipboard className="h-5 w-5 text-brand-500 mr-2" /> Daily Patient Queue
+                  </h3>
+                  <Link to="/doctor/queues" className="text-xs text-brand-600 hover:text-brand-700 hover:underline font-bold bg-brand-50/60 border border-brand-100/50 px-2.5 py-1 rounded-xl transition-all">
+                    View All
+                  </Link>
+                </div>
                 <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 font-bold">
                   {appointments.length} active remaining
                 </span>
@@ -233,7 +239,7 @@ export const DoctorQueue: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {appointments.map((apt) => (
+                  {appointments.slice(0, 2).map((apt) => (
                     <div key={apt.id} className="bg-white border border-slate-200 hover:border-brand-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="space-y-3">
                         <div className="flex items-center space-x-3">
@@ -272,7 +278,7 @@ export const DoctorQueue: React.FC = () => {
 
             {/* Right Column: Graphs */}
             <div className="space-y-8">
-              
+
               {/* Queue completion donut gauge */}
               <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex items-center justify-between">
                 <div className="space-y-2">
@@ -285,8 +291,8 @@ export const DoctorQueue: React.FC = () => {
                 <div className="relative flex items-center justify-center">
                   <svg className="w-20 h-20 transform -rotate-90">
                     <circle cx="40" cy="40" r="30" stroke="#f1f5f9" strokeWidth="6" fill="transparent" />
-                    <circle cx="40" cy="40" r="30" stroke="#2563eb" strokeWidth="6" fill="transparent" 
-                      strokeDasharray={188.5} 
+                    <circle cx="40" cy="40" r="30" stroke="#2563eb" strokeWidth="6" fill="transparent"
+                      strokeDasharray={188.5}
                       strokeDashoffset={188.5 - (188.5 * pct) / 100}
                       strokeLinecap="round"
                       className="transition-all duration-500"
@@ -324,7 +330,7 @@ export const DoctorQueue: React.FC = () => {
                           <div className="absolute bottom-full mb-1.5 bg-slate-900 text-white text-[9px] font-bold py-0.5 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap shadow">
                             {val} patients
                           </div>
-                          <div 
+                          <div
                             style={{ height: `${heightPercent}px` }}
                             className="w-full bg-[#3b82f6] hover:bg-brand-600 transition-all duration-300 rounded-t shadow-inner cursor-pointer"
                           ></div>
@@ -354,7 +360,7 @@ export const DoctorQueue: React.FC = () => {
                 </h3>
                 <p className="text-xs text-slate-500">Patient: {selectedApt.patient?.name} • Appt Time: {selectedApt.startTime}</p>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedApt(null)}
                 className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-655 transition-colors font-bold"
               >
@@ -416,7 +422,7 @@ export const DoctorQueue: React.FC = () => {
                 {/* Prescription Manager */}
                 <div className="space-y-3">
                   <span className="label-text">Draft Prescription Medications</span>
-                  
+
                   {/* Medications list */}
                   <div className="border border-slate-200 rounded-2xl bg-white divide-y divide-slate-100 overflow-hidden text-xs">
                     {meds.length === 0 ? (
@@ -428,7 +434,7 @@ export const DoctorQueue: React.FC = () => {
                             <p className="font-bold text-slate-800">{m.name} <span className="font-normal text-slate-500">({m.dosage})</span></p>
                             <p className="text-[10px] text-slate-450">{m.frequency} • {m.duration}</p>
                           </div>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => handleRemoveMedication(idx)}
                             className="p-1 hover:bg-rose-50 text-rose-500 rounded"
@@ -498,7 +504,7 @@ export const DoctorQueue: React.FC = () => {
 
             {/* Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 flex-shrink-0">
-              <button 
+              <button
                 onClick={() => setSelectedApt(null)}
                 className="btn-secondary px-5 text-xs font-semibold"
               >

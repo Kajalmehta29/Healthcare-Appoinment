@@ -18,7 +18,8 @@ import {
   X,
   CalendarDays,
   Sun,
-  Moon
+  Moon,
+  Clipboard as ClipboardIcon
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -119,7 +120,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
     ];
   } else if (user.role === 'DOCTOR') {
     sidebarItems = [
-      { name: 'Appointment Queue', path: '/doctor', icon: <Calendar className="h-5 w-5" /> },
+      { name: 'Doctor Dashboard', path: '/doctor', icon: <Activity className="h-5 w-5" /> },
+      { name: 'All Medical Queues', path: '/doctor/queues', icon: <ClipboardIcon className="h-5 w-5" /> },
       { name: 'Patient History', path: '/doctor/history', icon: <FileText className="h-5 w-5" /> },
       { name: 'Control Panel Settings', path: '/doctor/settings', icon: <Settings className="h-5 w-5" /> },
     ];
@@ -143,7 +145,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
       case '/patient/book': return 'Schedule an Appointment';
       case '/patient/history': return 'My Medical History';
       case '/patient/settings': return 'My Profile Settings';
-      case '/doctor': return 'Doctor Queue';
+      case '/doctor': return 'Doctor Queue Dashboard';
+      case '/doctor/queues': return 'All Medical Queues';
       case '/doctor/settings': return 'Clinical Parameters & Profile';
       case '/doctor/history': return 'Patient Medical Logs';
       case '/admin': return 'System Administration';
