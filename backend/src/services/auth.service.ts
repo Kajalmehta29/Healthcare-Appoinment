@@ -9,6 +9,7 @@ export class AuthService {
   static async login(email: string, password?: string) {
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
+      include: { googleOauth: true },
     });
 
     if (!user) {
@@ -42,6 +43,7 @@ export class AuthService {
         name: user.name,
         phone: user.phone,
         createdAt: user.createdAt,
+        isGoogleLinked: !!user.googleOauth,
       },
     };
   }
@@ -96,6 +98,7 @@ export class AuthService {
   static async getUserById(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: { googleOauth: true },
     });
     if (!user) throw new Error('USER_NOT_FOUND');
     return {
@@ -105,6 +108,7 @@ export class AuthService {
       name: user.name,
       phone: user.phone,
       createdAt: user.createdAt,
+      isGoogleLinked: !!user.googleOauth,
     };
   }
 
@@ -125,6 +129,7 @@ export class AuthService {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
+      include: { googleOauth: true },
     });
 
     if (updatedUser.role === 'PATIENT') {
@@ -146,6 +151,7 @@ export class AuthService {
       name: updatedUser.name,
       phone: updatedUser.phone,
       createdAt: updatedUser.createdAt,
+      isGoogleLinked: !!updatedUser.googleOauth,
     };
   }
 }

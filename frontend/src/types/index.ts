@@ -8,6 +8,7 @@ export interface User {
   phone?: string;
   password?: string;
   createdAt: string;
+  isGoogleLinked?: boolean;
 }
 
 export interface WorkingHour {

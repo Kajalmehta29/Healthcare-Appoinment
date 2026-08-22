@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Appointment, DoctorProfile, PatientProfile, User, WorkingHour, Medication, LeaveRecord } from '../types';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:5050/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5050/api',
 });
 
 // Add a request interceptor to attach the JWT token to headers if available
@@ -56,6 +56,11 @@ export const api = {
       const updatedUser = response.data;
       localStorage.setItem('medsync_current_user', JSON.stringify(updatedUser));
       return updatedUser;
+    },
+
+    getGoogleAuthUrl: async (): Promise<string> => {
+      const response = await axiosInstance.get('/auth/google/url');
+      return response.data.url;
     }
   },
 
