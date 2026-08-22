@@ -37,7 +37,7 @@ export const Register: React.FC = () => {
       await register(email, name, password);
       navigate('/patient');
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Check if email is already in use.');
+      setError(err.response?.data?.error || err.message || 'Registration failed. Check if email is already in use.');
     } finally {
       setIsLoading(false);
     }

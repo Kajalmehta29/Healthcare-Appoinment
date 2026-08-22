@@ -38,7 +38,7 @@ export const Login: React.FC = () => {
       else if (user.role === 'DOCTOR') navigate('/doctor');
       else if (user.role === 'ADMIN') navigate('/admin');
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please verify credentials.');
+      setError(err.response?.data?.error || err.message || 'Login failed. Please verify credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +53,7 @@ export const Login: React.FC = () => {
       else if (user.role === 'DOCTOR') navigate('/doctor');
       else if (user.role === 'ADMIN') navigate('/admin');
     } catch (err: any) {
-      setError(err.message || 'Quick login failed.');
+      setError(err.response?.data?.error || err.message || 'Quick login failed.');
     } finally {
       setIsLoading(false);
     }
