@@ -33,6 +33,7 @@ export const DoctorSettings: React.FC = () => {
   const { user, doctorProfile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Tab 1: Profile Settings State
@@ -148,6 +149,39 @@ export const DoctorSettings: React.FC = () => {
       alert(err.message || 'Failed to update profile info');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    if (!confirm('Are you sure you want to disconnect your Google Calendar?')) return;
+    setIsLoading(true);
+    setSuccessMsg(null);
+    try {
+      await api.auth.unlinkGoogle();
+      await refreshProfile();
+      setSuccessMsg('Google Calendar has been disconnected and unlinked from your account.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to unlink Google Calendar');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshGoogleStatus = async () => {
+    setIsCheckingStatus(true);
+    setSuccessMsg(null);
+    try {
+      const isLinked = await api.auth.refreshGoogleStatus();
+      await refreshProfile();
+      if (isLinked) {
+        setSuccessMsg('Google Calendar connection is active and valid!');
+      } else {
+        setSuccessMsg('Google Calendar connection was invalid or revoked. It has been unlinked.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to refresh status');
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -347,9 +381,9 @@ export const DoctorSettings: React.FC = () => {
                 </div>
                 
                 {user?.isGoogleLinked ? (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-emerald-500 text-white rounded-full">
+                      <div className="p-2 bg-emerald-500 text-white rounded-full shrink-0">
                         <CheckCircle className="h-5 w-5" />
                       </div>
                       <div>
@@ -357,14 +391,25 @@ export const DoctorSettings: React.FC = () => {
                         <p className="text-[10px] text-emerald-600">Appointments will automatically sync to Google Calendar.</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={refreshProfile}
-                      className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors flex items-center space-x-1"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      <span>Refresh Status</span>
-                    </button>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isLoading || isCheckingStatus}
+                        onClick={handleUnlinkGoogle}
+                        className="px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 font-bold border border-red-200 rounded-xl text-xs transition-colors shadow-sm"
+                      >
+                        Unlink Calendar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading || isCheckingStatus}
+                        onClick={handleRefreshGoogleStatus}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors flex items-center space-x-1"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                        <span>{isCheckingStatus ? 'Checking...' : 'Refresh Status'}</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -389,11 +434,12 @@ export const DoctorSettings: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={refreshProfile}
+                        disabled={isLoading || isCheckingStatus}
+                        onClick={handleRefreshGoogleStatus}
                         className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl transition-colors"
                         title="Check Link Status"
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
                   </div>

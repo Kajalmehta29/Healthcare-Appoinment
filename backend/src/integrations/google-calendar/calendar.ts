@@ -253,3 +253,60 @@ export const deleteCalendarEvent = async (appointmentId: string, userId: string)
     return false;
   }
 };
+
+/**
+ * Unlink Google Calendar connection (delete database credentials record)
+ */
+export const unlinkGoogleConnection = async (userId: string): Promise<void> => {
+  await prisma.googleOauth.delete({
+    where: { userId },
+  });
+  console.log(`Unlinked Google Calendar for user ${userId}`);
+};
+
+/**
+ * Verify Google Calendar connection.
+ * If the connection is invalid (expired or revoked), it will automatically delete the oauth record.
+ * Returns true if linked and valid, false if not linked or invalid.
+ */
+export const verifyGoogleConnection = async (userId: string): Promise<boolean> => {
+  try {
+    const auth = await getAuthenticatedClient(userId);
+    if (!auth) {
+      // If we couldn't get a client (e.g. refresh token failed or no oauth record)
+      // check if a record exists and delete it
+      const dbOauth = await prisma.googleOauth.findUnique({ where: { userId } });
+      if (dbOauth) {
+        await prisma.googleOauth.delete({ where: { userId } });
+        console.log(`Auto-unlinked Google Calendar for user ${userId} because token refresh failed.`);
+      }
+      return false;
+    }
+
+    // Attempt a lightweight API call to verify the token is still valid with Google
+    const calendar = google.calendar({ version: 'v3', auth });
+    await calendar.calendarList.list({ maxResults: 1 });
+    return true;
+  } catch (error: any) {
+    console.error(`Google Calendar connection verification failed for user ${userId}:`, error);
+    // If it's a authorization error (e.g., status 400, 401, or error contains invalid_grant or invalid_credentials),
+    // delete/unlink the local credentials.
+    const status = error.status || error.code || (error.response && error.response.status);
+    if (
+      status === 400 ||
+      status === 401 ||
+      error.message?.includes('invalid_grant') ||
+      error.message?.includes('invalid_credentials') ||
+      error.message?.includes('auth')
+    ) {
+      try {
+        await prisma.googleOauth.delete({ where: { userId } });
+        console.log(`Auto-unlinked Google Calendar for user ${userId} due to auth failure:`, error.message);
+      } catch (dbErr) {
+        console.error('Failed to auto-unlink after Google auth failure:', dbErr);
+      }
+    }
+    return false;
+  }
+};
+

@@ -60,6 +60,15 @@ export const api = {
     getGoogleAuthUrl: async (): Promise<string> => {
       const response = await axiosInstance.get('/auth/google/url');
       return response.data.url;
+    },
+
+    unlinkGoogle: async (): Promise<void> => {
+      await axiosInstance.post('/auth/google/unlink');
+    },
+
+    refreshGoogleStatus: async (): Promise<boolean> => {
+      const response = await axiosInstance.post('/auth/google/refresh-status');
+      return response.data.isGoogleLinked;
     }
   },
 

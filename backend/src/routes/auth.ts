@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { authenticateToken } from '../middleware/auth';
-import { getGoogleAuthUrl, handleGoogleCallback } from '../integrations/google-calendar/calendar';
+import { getGoogleAuthUrl, handleGoogleCallback, unlinkGoogleConnection, verifyGoogleConnection } from '../integrations/google-calendar/calendar';
 
 const router = Router();
 
@@ -38,6 +38,28 @@ router.get('/google/callback', async (req, res) => {
   } catch (error: any) {
     console.error('Google OAuth callback trade failed:', error);
     return res.status(500).send(`Authentication failed: ${error.message}`);
+  }
+});
+
+router.post('/google/unlink', authenticateToken, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    await unlinkGoogleConnection(req.user.id);
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('Failed to unlink Google Calendar:', error);
+    return res.status(500).json({ error: error.message || 'Failed to unlink Google Calendar' });
+  }
+});
+
+router.post('/google/refresh-status', authenticateToken, async (req: any, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const isGoogleLinked = await verifyGoogleConnection(req.user.id);
+    return res.json({ isGoogleLinked });
+  } catch (error: any) {
+    console.error('Failed to refresh Google Calendar status:', error);
+    return res.status(500).json({ error: error.message || 'Failed to check status' });
   }
 });
 

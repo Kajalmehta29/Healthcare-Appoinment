@@ -6,6 +6,7 @@ import { CheckCircle, User as UserIcon, Lock, Phone, Mail, Settings2, ShieldChec
 export const PatientSettings: React.FC = () => {
   const { user, refreshProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [name, setName] = useState('');
@@ -41,6 +42,39 @@ export const PatientSettings: React.FC = () => {
       alert(err.message || 'Failed to save settings');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    if (!confirm('Are you sure you want to disconnect your Google Calendar?')) return;
+    setIsLoading(true);
+    setSuccessMsg(null);
+    try {
+      await api.auth.unlinkGoogle();
+      await refreshProfile();
+      setSuccessMsg('Google Calendar has been disconnected and unlinked from your account.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to unlink Google Calendar');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshGoogleStatus = async () => {
+    setIsCheckingStatus(true);
+    setSuccessMsg(null);
+    try {
+      const isLinked = await api.auth.refreshGoogleStatus();
+      await refreshProfile();
+      if (isLinked) {
+        setSuccessMsg('Google Calendar connection is active and valid!');
+      } else {
+        setSuccessMsg('Google Calendar connection was invalid or revoked. It has been unlinked.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to refresh status');
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -95,65 +129,70 @@ export const PatientSettings: React.FC = () => {
             </div>
             <div>
               <h3 className="font-extrabold text-slate-900 text-base">Edit Account Details</h3>
-              <p className="text-xs text-slate-450 mt-1">Keep your credentials up to date to receive prescriptions and reminders.</p>
+              <p className="text-xs text-slate-455 mt-1">Keep your credentials up to date to receive prescriptions and reminders.</p>
             </div>
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="label-text">Full Name</label>
-              <div className="relative">
-                <UserIcon className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input-field pl-10 text-sm h-11"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label-text">Email Address</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="input-field pl-10 text-sm h-11"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    placeholder="email@example.com"
                   />
                 </div>
               </div>
-              <div>
-                <label className="label-text">Phone Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +1 555-019-2834"
-                    className="input-field pl-10 text-sm h-11"
-                  />
-                </div>
-              </div>
-            </div>
 
-            <div>
-              <label className="label-text">Change Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Leave empty to keep current password"
-                  className="input-field pl-10 text-sm h-11"
-                />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">New Password (Optional)</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
               </div>
             </div>
 
@@ -174,9 +213,9 @@ export const PatientSettings: React.FC = () => {
             </div>
 
             {user?.isGoogleLinked ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-emerald-500 text-white rounded-full">
+                  <div className="p-2 bg-emerald-500 text-white rounded-full shrink-0">
                     <CheckCircle className="h-5 w-5" />
                   </div>
                   <div>
@@ -184,14 +223,25 @@ export const PatientSettings: React.FC = () => {
                     <p className="text-[10px] text-emerald-600">Appointments will automatically sync to your Google Calendar.</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={refreshProfile}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors flex items-center space-x-1"
-                >
-                  <RefreshCw className="h-3 w-3 animate-spin-hover" />
-                  <span>Refresh Status</span>
-                </button>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isLoading || isCheckingStatus}
+                    onClick={handleUnlinkGoogle}
+                    className="px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 font-bold border border-red-200 rounded-xl text-xs transition-colors shadow-sm"
+                  >
+                    Unlink Calendar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoading || isCheckingStatus}
+                    onClick={handleRefreshGoogleStatus}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors flex items-center space-x-1"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                    <span>{isCheckingStatus ? 'Checking...' : 'Refresh Status'}</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -216,11 +266,12 @@ export const PatientSettings: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={refreshProfile}
+                    disabled={isLoading || isCheckingStatus}
+                    onClick={handleRefreshGoogleStatus}
                     className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl transition-colors"
                     title="Check Link Status"
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
               </div>
