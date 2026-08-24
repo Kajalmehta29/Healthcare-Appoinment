@@ -50,7 +50,7 @@ Below are snapshots of the Medsync interface showing the user flow and design ae
 *   **Backend**: Node.js, Express.js, TypeScript, REST APIs, Zod, BullMQ, ioredis
 *   **Database**: PostgreSQL (Prisma ORM) / SQLite for local fallback
 *   **AI**: Google Gemini API (via `@google/generative-ai` SDK)
-*   **Mails**: SendGrip (SMTP transporter with auto Ethereal fallback)
+*   **Mails**: SMTP transporter with auto Ethereal fallback
 *   **Calendar**: Google Calendar API (OAuth 2.0)
 
 ---
@@ -62,128 +62,398 @@ Below are snapshots of the Medsync interface showing the user flow and design ae
                                  │
                                  │ REST API (CORS enabled)
                                  ▼
-                  Express + TS Backend (Port 5050)
+                   Express + TS Backend (Port 5050)
                                  │
-           ┌─────────────────────┼─────────────────────┐
-           ▼                     ▼                     ▼
-      PostgreSQL               BullMQ               External APIs
-     (Prisma ORM)          (Redis / Local)               │
-                                                ┌────────┼────────┐
-                                                ▼        ▼        ▼
-                                             Gemini    Google   SMTP
-                                              LLM     Calendar (Email)
+            ┌─────────────────────┼─────────────────────┐
+            ▼                     ▼                     ▼
+       PostgreSQL               BullMQ               External APIs
+      (Prisma ORM)          (Redis / Local)               │
+                                                 ┌────────┼────────┐
+                                                 ▼        ▼        ▼
+                                              Gemini    Google   SMTP
+                                               LLM     Calendar (Email)
 ```
 
 ---
 
-## ⚙️ Setup & Deployment Instructions
+## ⚙️ Detailed Setup Guide
 
-### 1. Clone & Configuration
-```bash
-git clone <repository-url>
-cd Healthcare-Appointment
-```
-
-Create a `.env` file in the `backend/` directory:
-```bash
-cp backend/.env.example backend/.env
-```
-
-Set up your keys inside `backend/.env`:
-*   `DATABASE_URL`: Your PostgreSQL Connection String.
-*   `GEMINI_API_KEY`: Your Gemini API Key from Google AI Studio.
-*   `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` (set to `apikey` if using SendGrid), `SMTP_PASS` (SendGrid API Key), `SMTP_FROM`.
-*   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (redirect callback: `http://localhost:5050/api/auth/google/callback`).
+### 1. Prerequisites
+Ensure you have the following installed on your local machine:
+*   [Node.js](https://nodejs.org/) (v18.x or later)
+*   [PostgreSQL](https://www.postgresql.org/) (Or use the fallback local SQLite config)
+*   [Redis](https://redis.io/) (Optional, used for BullMQ queue manager. Falls back to an in-memory scheduler if not running)
 
 ---
 
-### 2. Setup Backend & Database
-```bash
-cd backend
-npm install
+### 2. Google Cloud Console Setup (Google Calendar API)
+To enable Google Calendar syncing, you must register a project in the Google Cloud Console:
 
-# Push the schema to your database and generate Prisma Client
-npx prisma db push
-
-# Seed the default admin, doctor, and patient accounts
-npx prisma db seed
-
-# Start the backend server
-npm run dev
-```
-*The backend server will run on `http://localhost:5050`.*
-
----
-
-### 3. Setup Frontend
-In a new terminal window:
-```bash
-cd frontend
-npm install
-
-# Copy env example and configure VITE_API_URL (defaults to localhost:5050/api if left blank)
-cp .env.example .env
-
-# Start the frontend Vite server
-npm run dev
-```
-*The frontend Vite server will start on `http://localhost:5173/`.*
+1.  **Create a New Project**:
+    *   Go to the [Google Cloud Console](https://console.cloud.google.com/).
+    *   Click the project dropdown in the top navigation bar and select **New Project**.
+    *   Name your project (e.g., `Medsync Scheduler`) and click **Create**.
+2.  **Enable APIs**:
+    *   Navigate to **APIs & Services > Library**.
+    *   Search for **Google Calendar API** and select it.
+    *   Click **Enable**.
+3.  **Configure OAuth Consent Screen**:
+    *   Go to **APIs & Services > OAuth consent screen**.
+    *   Select **External** and click **Create**.
+    *   Fill out the app name (`Medsync`), user support email, and developer contact information. Click **Save and Continue**.
+    *   **Scopes**: Under Scopes, click **Add or Remove Scopes**. Add the following scope strings:
+        *   `.../auth/calendar.events` (Manage your Google Calendar events)
+        *   `.../auth/calendar.readonly` (View your Google Calendars)
+        *   `openid`, `email`, `profile`
+    *   **Test Users**: Add the Google Accounts you intend to use for testing during development.
+4.  **Create OAuth Credentials**:
+    *   Go to **APIs & Services > Credentials**.
+    *   Click **Create Credentials** and select **OAuth client ID**.
+    *   Select **Web application** as the application type.
+    *   Set the **Name** (e.g., `Medsync Client`).
+    *   Add **Authorized JavaScript origins**: `http://localhost:5050`
+    *   Add **Authorized redirect URIs**: `http://localhost:5050/api/auth/google/callback`
+    *   Click **Create** and copy your **Client ID** and **Client Secret**.
 
 ---
 
-## 🧪 Double-Booking Verification (Stress Test)
-
-Medsync includes a pre-packaged concurrency test script to verify that double-booking prevention works under stress:
-1. Ensure the backend server is running (`npm run dev` in `backend/`).
-2. Run the test command from the `backend/` directory:
-   ```bash
-   node stress_test_booking.js
-   ```
-The test issues 5 concurrent bookings for the exact same slot. You will see 1 request succeed (`201 Created`) and 4 fail with `409 Conflict`.
+### 3. Setup Backend & Database
+1.  **Clone & Navigate**:
+    ```bash
+    git clone <repository-url>
+    cd Healthcare-Appointment
+    ```
+2.  **Create Environment File**:
+    ```bash
+    cp backend/.env.example backend/.env
+    ```
+    Open `backend/.env` and update the values (see the [.env.example Configuration](#-environment-configurations-evexample) section below).
+3.  **Install Dependencies**:
+    ```bash
+    cd backend
+    npm install
+    ```
+4.  **Database Migration**:
+    Configure your database inside `.env` then push the schema:
+    ```bash
+    npx prisma db push
+    ```
+5.  **Seed Database**:
+    Seed default accounts (Patient, Doctor, Admin):
+    ```bash
+    npx prisma db seed
+    ```
+6.  **Run Development Server**:
+    ```bash
+    npm run dev
+    ```
+    *The backend server will run on `http://localhost:5050`.*
 
 ---
 
-## 📄 Database Entity Relationships
+### 4. Setup Frontend
+1.  Open a new terminal window at the workspace root directory:
+    ```bash
+    cd frontend
+    ```
+2.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+3.  **Create Environment File**:
+    ```bash
+    cp .env.example .env
+    ```
+4.  **Run Development Server**:
+    ```bash
+    npm run dev
+    ```
+    *The frontend Vite server will start on `http://localhost:5173/`.*
 
-```text
-User (id, email, password, name, phone, role)
- ├── PatientProfile (id, userId, name, email, phone)
- └── DoctorProfile (id, userId, name, email, specialization, slotDuration, leaveDays)
-      ├── DoctorWorkingHour (id, doctorId, dayOfWeek, startTime, endTime)
-      └── LeaveRecord (id, doctorId, startDate, endDate, status)
+---
 
-Appointment (id, patientId, doctorId, date, startTime, status, heldUntil)
- ├── SymptomSubmission (id, symptoms, urgency, chiefComplaint, suggestedQuestions, aiStatus)
- ├── Consultation (id, clinicalNotes)
- ├── Prescription (id, followUpInstructions) ───> Medication (id, name, dosage, frequency)
- ├── AISummary (id, summaryText, medicationSchedule, followUpSteps, status)
- └── CalendarEvent (id, googleEventId, htmlLink)
-```
+## 🔒 Environment Configurations (.env.example)
+
+### Backend environment variables (`backend/.env.example`)
+
+| Variable Name | Description | Default Value | Required / Fallback |
+| :--- | :--- | :--- | :--- |
+| `PORT` | The port number on which the backend server runs. | `5050` | Required |
+| `DATABASE_URL` | Prisma PostgreSQL database connection string. | `file:./dev.db` | Required (defaults to local SQLite if using `file:`) |
+| `JWT_SECRET` | Secret key used for signing JSON Web Tokens. | *[empty]* | **Required** for secure authorization |
+| `GEMINI_API_KEY` | Google Gemini API Key for symptom analysis & AI summaries. | *[empty]* | Optional (Falls back to internal rule-based analysis if empty) |
+| `SMTP_HOST` | Host address of your SMTP server (e.g., `smtp.sendgrid.net`). | *[empty]* | Optional (Falls back to Ethereal Mail logging if empty) |
+| `SMTP_PORT` | Port number of the SMTP server. | `587` | Optional |
+| `SMTP_USER` | Username credential for the SMTP service. | *[empty]* | Optional |
+| `SMTP_PASS` | Password credential for the SMTP service. | *[empty]* | Optional |
+| `SMTP_FROM` | Sender email address display name. | `"Medsync Healthcare" <no-reply@medsync.com>` | Optional |
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 Client ID from Google Cloud Console. | *[empty]* | Required to use Google Calendar sync features |
+| `GOOGLE_CLIENT_SECRET` | OAuth 2.0 Client Secret from Google Cloud Console. | *[empty]* | Required to use Google Calendar sync features |
+| `GOOGLE_REDIRECT_URI` | Google OAuth callback redirect URL. | `http://localhost:5050/api/auth/google/callback` | Required to use Google Calendar sync features |
+
+### Frontend environment variables (`frontend/.env.example`)
+
+| Variable Name | Description | Default Value | Required / Fallback |
+| :--- | :--- | :--- | :--- |
+| `VITE_API_URL` | Base endpoint URL directing to your running backend API. | *[empty]* | Optional (defaults to `http://localhost:5050/api`) |
 
 ---
 
 ## 🔌 API Documentation
 
-### Authentication
-*   `POST /api/auth/register` - Create patient user.
-*   `POST /api/auth/login` - Retrieve JWT token.
-*   `GET /api/auth/me` - Fetch profile metadata.
-*   `PUT /api/auth/profile` - Update profile settings.
-*   `GET /api/auth/google/url` - Generate Google OAuth link URL.
-*   `GET /api/auth/google/callback` - Callback handler for Google OAuth.
+### 🔑 Authentication & Profiles
+*   `POST /api/auth/register`
+    *   **Description**: Registers a new patient account.
+    *   **Body**: `{"email": "...", "password": "...", "name": "...", "phone": "..."}`
+*   `POST /api/auth/login`
+    *   **Description**: Authenticates user credentials and returns a JWT token.
+    *   **Body**: `{"email": "...", "password": "..."}`
+*   `GET /api/auth/me`
+    *   **Description**: Fetches current user metadata and roles (Authorization Header Required).
+*   `PUT /api/auth/profile`
+    *   **Description**: Updates user profile information.
+    *   **Body**: `{"name": "...", "phone": "..."}`
 
-### Doctor Schedules
-*   `GET /api/doctors` - Retrieve doctors list.
-*   `GET /api/doctors/:id/availability?date=YYYY-MM-DD` - Get empty slots.
-*   `POST /api/doctors/:id/leave-range` - Mark administrator leave day range.
-*   `POST /api/doctors/:id/cancel-leave` - Cancel leave range early.
-*   `GET /api/doctors/:id/leaves` - View leave histories.
+### 📅 Google OAuth & Integration
+*   `GET /api/auth/google/url`
+    *   **Description**: Returns the Google consent screen URL for OAuth linking.
+*   `GET /api/auth/google/callback`
+    *   **Description**: Receives authorization code from Google, exchanges it for OAuth tokens, and redirects back to the dashboard settings page.
 
-### Appointments
-*   `POST /api/appointments/hold` - Create a temporary 5-min slot hold lock.
-*   `POST /api/appointments/:id/confirm` - Submit symptoms and confirm booking.
-*   `POST /api/appointments/:id/reschedule` - Shift slot atomically.
-*   `POST /api/appointments/:id/cancel` - Cancel appointment and free timeslot.
+### 🩺 Doctor Management
+*   `GET /api/doctors`
+    *   **Description**: Returns a list of all registered doctors.
+*   `GET /api/doctors/:id/availability?date=YYYY-MM-DD`
+    *   **Description**: Returns all availability slots for a doctor on a specific date, factoring in operational hours, existing appointments, and locks.
+*   `POST /api/doctors/:id/leave-range`
+    *   **Description**: (Admin Only) Registers a range of leave days for a doctor, triggers automated cancellations, and sends email notifications.
+    *   **Body**: `{"startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD"}`
+*   `POST /api/doctors/:id/cancel-leave`
+    *   **Description**: (Admin Only) Cancels a doctor's registered leave range early.
+    *   **Body**: `{"leaveId": "..."}`
+*   `GET /api/doctors/:id/leaves`
+    *   **Description**: Retrieves leave records for a specific doctor profile.
 
-### Consultations
-*   `POST /api/appointments/:id/consultation` - Submit notes, prescription, and medications.
+### 📅 Appointments
+*   `POST /api/appointments/hold`
+    *   **Description**: Requests a temporary 5-minute locking lock on a specific timeslot.
+    *   **Body**: `{"doctorId": "...", "date": "YYYY-MM-DD", "startTime": "HH:MM"}`
+*   `POST /api/appointments/:id/confirm`
+    *   **Description**: Submits patient symptoms, triggers AI analysis, and finalizes the reservation.
+    *   **Body**: `{"symptoms": "..."}`
+*   `POST /api/appointments/:id/reschedule`
+    *   **Description**: Atomically cancels the current slot and creates a new appointment slot.
+    *   **Body**: `{"date": "YYYY-MM-DD", "startTime": "HH:MM"}`
+*   `POST /api/appointments/:id/cancel`
+    *   **Description**: Cancels a confirmed booking, deleting any associated Google Calendar events and freeing up the slot.
+
+### 🩺 Consultations & Summaries
+*   `POST /api/appointments/:id/consultation`
+    *   **Description**: (Doctor Only) Saves clinical details, creates a prescription record, and dispatches background jobs for Gemini to generate patient summaries.
+    *   **Body**: `{"clinicalNotes": "...", "followUpInstructions": "...", "medications": [{"name": "...", "dosage": "...", "frequency": "...", "duration": "..."}]}`
+
+---
+
+## 🗄️ Database Schema (Prisma Models)
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String
+  name           String
+  phone          String?
+  role           String          // "PATIENT" | "DOCTOR" | "ADMIN"
+  createdAt      DateTime        @default(now())
+  doctorProfile  DoctorProfile?
+  patientProfile PatientProfile?
+  googleOauth    GoogleOauth?
+}
+
+model DoctorProfile {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  phone          String?
+  specialization String
+  slotDuration   Int             @default(30)
+  leaveDays      String          // Serialized JSON array of "YYYY-MM-DD"
+  createdAt      DateTime        @default(now())
+  workingHours   WorkingHour[]
+  appointments   Appointment[]
+  leaveRecords   LeaveRecord[]
+}
+
+model WorkingHour {
+  id             String          @id @default(uuid())
+  doctorId       String
+  doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int             // 0 = Sunday, 1 = Monday, etc.
+  startTime      String          // "HH:MM"
+  endTime        String          // "HH:MM"
+}
+
+model PatientProfile {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  phone          String?
+  createdAt      DateTime        @default(now())
+  appointments   Appointment[]
+}
+
+model Appointment {
+  id             String          @id @default(uuid())
+  patientId      String?
+  patient        PatientProfile? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  doctorId       String
+  doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date           String          // "YYYY-MM-DD"
+  startTime      String          // "HH:MM"
+  endTime        String          // "HH:MM"
+  status         String          // "AVAILABLE" | "HELD" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "CANCELLED_BY_DOCTOR_LEAVE"
+  heldUntil      DateTime?
+  createdAt      DateTime        @default(now())
+  symptoms       SymptomSubmission?
+  consultation   Consultation?
+  prescription   Prescription?
+  aiSummary      AISummary?
+  calendarEvent  CalendarEvent?
+}
+
+model SymptomSubmission {
+  id                 String          @id @default(uuid())
+  appointmentId      String          @unique
+  appointment        Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  symptoms           String
+  urgency            String          // "Low" | "Medium" | "High" | "PENDING" | "FAILED"
+  chiefComplaint     String
+  suggestedQuestions String          // Serialized JSON array of strings
+  aiStatus           String          @default("SUCCESS") // "PENDING" | "SUCCESS" | "FAILED"
+  createdAt          DateTime        @default(now())
+}
+
+model Consultation {
+  id             String          @id @default(uuid())
+  appointmentId  String          @unique
+  appointment    Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clinicalNotes  String
+  createdAt      DateTime        @default(now())
+}
+
+model Prescription {
+  id                   String          @id @default(uuid())
+  appointmentId        String          @unique
+  appointment          Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  followUpInstructions String?
+  createdAt            DateTime        @default(now())
+  medications          Medication[]
+}
+
+model Medication {
+  id             String          @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription    @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  name           String
+  dosage         String
+  frequency      String
+  duration       String
+}
+
+model AISummary {
+  id                 String          @id @default(uuid())
+  appointmentId      String          @unique
+  appointment        Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  summaryText        String
+  medicationSchedule String
+  followUpSteps      String
+  status             String          // "PENDING" | "SUCCESS" | "FAILED"
+  createdAt          DateTime        @default(now())
+}
+
+model LeaveRecord {
+  id             String          @id @default(uuid())
+  doctorId       String
+  doctor         DoctorProfile   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  startDate      String          // "YYYY-MM-DD"
+  endDate        String          // "YYYY-MM-DD"
+  status         String          // "ACTIVE" | "RESUMED_EARLY" | "COMPLETED"
+  createdAt      DateTime        @default(now())
+}
+
+model Notification {
+  id             String          @id @default(uuid())
+  recipientEmail String
+  type           String
+  message        String
+  read           Boolean         @default(false)
+  emailStatus    String          @default("SENT") // "PENDING" | "SENT" | "FAILED"
+  createdAt      DateTime        @default(now())
+}
+
+model CalendarEvent {
+  id             String          @id @default(uuid())
+  appointmentId  String          @unique
+  appointment    Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  googleEventId  String
+  htmlLink       String?
+  createdAt      DateTime        @default(now())
+}
+
+model GoogleOauth {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String?
+  expiryDate   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+```
+
+---
+
+## 🤖 LLM Prompts (Google Gemini Integration)
+
+Medsync relies on `gemini-1.5-flash` model engines to compile clinical summaries and analyze triage severity states.
+
+### 1. Symptom Triage Analysis Prompt
+*   **System Action Context**: Triggers automatically during slot confirmation after a patient enters their initial symptoms.
+*   **Execution Target File**: [`gemini.ts`](file:///Users/kajalmehta/Projects/Healthcare-Appointment/backend/src/integrations/ai/gemini.ts#L48-L53)
+*   **Instruction Prompt**:
+    ```text
+    Analyse these symptoms and return a JSON object (strictly raw JSON, do not include markdown blocks or code formatting) containing:
+    - urgency: "Low" or "Medium" or "High"
+    - chiefComplaint: a brief summary of the primary complaint (string, max 50 chars)
+    - suggestedQuestions: array of three useful questions the doctor should ask the patient
+
+    Symptoms: "${symptoms}"
+    ```
+
+---
+
+### 2. Clinical Consultation Post-Visit Summary Prompt
+*   **System Action Context**: Runs inside a background worker to summarize prescriptions and clinical notes into patient-friendly copy.
+*   **Execution Target File**: [`gemini.ts`](file:///Users/kajalmehta/Projects/Healthcare-Appointment/backend/src/integrations/ai/gemini.ts#L83-L91)
+*   **Instruction Prompt**:
+    ```text
+    Convert these clinical notes into a patient-friendly format and return a JSON object (strictly raw JSON, do not include markdown blocks or code formatting) containing:
+    - summaryText: a simplified description of the diagnosis and doctor notes
+    - medicationSchedule: a clear bulleted list of how to take their medications
+    - followUpSteps: key next actions or appointments
+
+    Clinical notes: "${notes}"
+    Medications prescribed:
+    "${medicationsList}"
+    Follow-up: "${followUp}"
+    ```
