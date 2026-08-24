@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini Client
 const apiKey = process.env.GEMINI_API_KEY || '';
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
@@ -16,9 +15,6 @@ export interface ConsultationSummaryResult {
   followUpSteps: string;
 }
 
-/**
- * Fallback Symptom Analysis
- */
 const getSymptomFallback = (symptoms: string): SymptomAnalysisResult => {
   const isUrgent = symptoms.toLowerCase().includes('chest pain') || symptoms.toLowerCase().includes('breathing');
   const urgency = isUrgent ? 'High' : (symptoms.length > 50 ? 'Medium' : 'Low');
@@ -33,9 +29,6 @@ const getSymptomFallback = (symptoms: string): SymptomAnalysisResult => {
   };
 };
 
-/**
- * Fallback Consultation Summary
- */
 const getConsultationFallback = (notes: string, medicationsList: string, followUp: string): ConsultationSummaryResult => {
   return {
     summaryText: `Patient visited regarding clinical concerns. The doctor documented: ${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}`,
@@ -44,9 +37,6 @@ const getConsultationFallback = (notes: string, medicationsList: string, followU
   };
 };
 
-/**
- * Analyze symptoms using Gemini model
- */
 export const analyzeSymptoms = async (symptoms: string): Promise<SymptomAnalysisResult> => {
   if (!genAI) {
     console.warn('GEMINI_API_KEY is not configured. Using local symptom analysis rule engine (fallback).');
@@ -80,9 +70,6 @@ Symptoms: "${symptoms}"`;
   }
 };
 
-/**
- * Convert clinical notes into a patient-friendly summary using Gemini
- */
 export const generatePostVisitSummary = async (notes: string, medications: any[], followUp: string): Promise<ConsultationSummaryResult> => {
   const medicationsList = medications.map(m => `- ${m.name}: ${m.dosage} ${m.frequency} for ${m.duration}`).join('\n');
 

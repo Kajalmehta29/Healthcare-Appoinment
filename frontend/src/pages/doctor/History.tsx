@@ -13,7 +13,9 @@ import {
   ChevronLeft,
   Activity,
   ClipboardCheck,
-  ClipboardList
+  ClipboardList,
+  Edit3,
+  Plus
 } from 'lucide-react';
 
 interface PatientRecord {
@@ -28,6 +30,19 @@ export const DoctorHistory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<PatientRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edit modal states
+  const [editingApt, setEditingApt] = useState<Appointment | null>(null);
+  const [clinicalNotes, setClinicalNotes] = useState('');
+  const [meds, setMeds] = useState<{ name: string; dosage: string; frequency: string; duration: string }[]>([]);
+  const [followUp, setFollowUp] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Medication row inputs
+  const [medName, setMedName] = useState('');
+  const [medDosage, setMedDosage] = useState('');
+  const [medFreq, setMedFreq] = useState('');
+  const [medDur, setMedDur] = useState('');
 
   const fetchRecords = async () => {
     if (!doctorProfile) return;
@@ -88,6 +103,73 @@ export const DoctorHistory: React.FC = () => {
     );
   };
 
+  const handleOpenEdit = (apt: Appointment) => {
+    setEditingApt(apt);
+    setClinicalNotes(apt.consultation?.clinicalNotes || '');
+    setMeds((apt.prescription?.medications || []).map(m => ({
+      name: m.name,
+      dosage: m.dosage,
+      frequency: m.frequency,
+      duration: m.duration,
+    })));
+    setFollowUp(apt.prescription?.followUpInstructions || '');
+    // Reset med inputs
+    setMedName('');
+    setMedDosage('');
+    setMedFreq('');
+    setMedDur('');
+  };
+
+  const handleAddMedication = () => {
+    if (!medName || !medDosage || !medFreq || !medDur) return;
+    setMeds([...meds, { name: medName, dosage: medDosage, frequency: medFreq, duration: medDur }]);
+    setMedName('');
+    setMedDosage('');
+    setMedFreq('');
+    setMedDur('');
+  };
+
+  const handleRemoveMedication = (idx: number) => {
+    setMeds(meds.filter((_, i) => i !== idx));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingApt || !clinicalNotes) return;
+    setIsSavingEdit(true);
+    try {
+      let finalMeds = [...meds];
+      if (medName && medDosage && medFreq && medDur) {
+        finalMeds.push({ name: medName, dosage: medDosage, frequency: medFreq, duration: medDur });
+      }
+
+      await api.appointments.submitConsultation(editingApt.id, {
+        notes: clinicalNotes,
+        medications: finalMeds,
+        followUp
+      });
+      setEditingApt(null);
+      await fetchRecords();
+      
+      // If we are currently viewing a folder, update the selectedRecord too!
+      if (selectedRecord) {
+        const updatedData = await api.appointments.list({ doctorId: doctorProfile!.id });
+        const completed = updatedData.filter(a => a.status === 'COMPLETED');
+        const patientApts = completed
+          .filter(a => a.patientId === selectedRecord.patient.id)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        setSelectedRecord({
+          patient: selectedRecord.patient,
+          appointments: patientApts
+        });
+      }
+    } catch (err) {
+      alert('Failed to save changes to consultation log.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   if (selectedRecord) {
     const totalConsultations = selectedRecord.appointments.length;
     const followUps = totalConsultations > 1 ? totalConsultations - 1 : 0;
@@ -118,7 +200,7 @@ export const DoctorHistory: React.FC = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 leading-none">{selectedRecord.patient.name}</h3>
-              <p className="text-xs text-slate-450 font-mono mt-1">{selectedRecord.patient.email}</p>
+              <p className="text-xs text-slate-455 font-mono mt-1">{selectedRecord.patient.email}</p>
             </div>
           </div>
 
@@ -147,8 +229,15 @@ export const DoctorHistory: React.FC = () => {
                     <h4 className="font-bold text-slate-800 text-sm">Consultation Date: {apt.date}</h4>
                     <p className="text-xs text-slate-450 flex items-center"><Clock className="h-3.5 w-3.5 mr-1" /> Slot: {apt.startTime} - {apt.endTime}</p>
                   </div>
-                  <div>
+                  <div className="flex items-center space-x-2">
                     {getVisitTypeBadge(chronoIndex)}
+                    <button
+                      onClick={() => handleOpenEdit(apt)}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] rounded-xl flex items-center shadow-sm transition-colors"
+                      title="Edit consultation notes and prescription"
+                    >
+                      <Edit3 className="h-3 w-3 mr-1 text-brand-400" /> Edit Log
+                    </button>
                   </div>
                 </div>
 
@@ -200,6 +289,140 @@ export const DoctorHistory: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Edit Consultation Modal */}
+        {editingApt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 flex-shrink-0">
+                <div>
+                  <h3 className="font-bold text-slate-950">Edit Consultation Log & Prescription</h3>
+                  <p className="text-xs text-slate-500">Patient: {editingApt.patient?.name} • Date: {editingApt.date}</p>
+                </div>
+                <button 
+                  onClick={() => setEditingApt(null)}
+                  className="p-1.5 rounded-lg text-slate-450 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="p-6 space-y-6 overflow-y-auto text-sm leading-relaxed flex-1">
+                <div>
+                  <label className="label-text block font-bold text-slate-700 mb-1">Clinical Consultation Notes</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={clinicalNotes}
+                    onChange={(e) => setClinicalNotes(e.target.value)}
+                    placeholder="Enter clinical notes, diagnosis, and medical advice..."
+                    className="input-field text-xs font-sans h-32 w-full p-3 border border-slate-200 rounded-xl"
+                  />
+                </div>
+
+                {/* Prescription Manager */}
+                <div className="space-y-3">
+                  <span className="label-text block font-bold text-slate-700">Draft Prescription Medications</span>
+                  
+                  {/* Medications List */}
+                  <div className="border border-slate-200 rounded-2xl bg-white divide-y divide-slate-100 overflow-hidden text-xs">
+                    {meds.length === 0 ? (
+                      <p className="p-4 text-slate-400 text-center italic">No prescription lines added yet.</p>
+                    ) : (
+                      meds.map((m, idx) => (
+                        <div key={idx} className="p-3 flex justify-between items-center bg-slate-50/30">
+                          <div>
+                            <p className="font-bold text-slate-800">{m.name} <span className="font-normal text-slate-550">({m.dosage})</span></p>
+                            <p className="text-[10px] text-slate-450">{m.frequency} • {m.duration}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedication(idx)}
+                            className="p-1 hover:bg-rose-50 text-rose-500 rounded"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add Row inputs */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <input
+                      type="text"
+                      placeholder="Med Name"
+                      value={medName}
+                      onChange={(e) => setMedName(e.target.value)}
+                      className="input-field px-2.5 py-1.5 border border-slate-200 rounded-xl"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Dosage (e.g. 500mg)"
+                      value={medDosage}
+                      onChange={(e) => setMedDosage(e.target.value)}
+                      className="input-field px-2.5 py-1.5 border border-slate-200 rounded-xl"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Freq (e.g. Twice Daily)"
+                      value={medFreq}
+                      onChange={(e) => setMedFreq(e.target.value)}
+                      className="input-field px-2.5 py-1.5 border border-slate-200 rounded-xl"
+                    />
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        placeholder="Duration (e.g. 5 Days)"
+                        value={medDur}
+                        onChange={(e) => setMedDur(e.target.value)}
+                        className="input-field px-2.5 py-1.5 border border-slate-200 rounded-xl flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddMedication}
+                        className="btn-accent px-3 shrink-0 rounded-xl bg-slate-900 text-white font-bold text-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Follow up instructions */}
+                <div>
+                  <label className="label-text block font-bold text-slate-700 mb-1">Follow-up Directives & Remarks</label>
+                  <input
+                    type="text"
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    placeholder="e.g., Return in 2 weeks for checkup"
+                    className="input-field text-xs w-full p-2.5 border border-slate-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 flex-shrink-0">
+                <button
+                  onClick={() => setEditingApt(null)}
+                  className="btn-secondary px-5 py-2 text-xs font-semibold border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isSavingEdit || !clinicalNotes}
+                  className="btn-primary px-8 py-2 text-xs font-semibold bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors disabled:opacity-50"
+                >
+                  {isSavingEdit ? 'Saving Changes...' : 'Save Consultation Details'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -232,7 +455,7 @@ export const DoctorHistory: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center shadow-sm max-w-lg mx-auto">
           <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
           <h3 className="font-bold text-slate-800 text-base">No Folders Registered</h3>
-          <p className="text-xs text-slate-550 mt-1">No completed patient histories found matching that query.</p>
+          <p className="text-xs text-slate-555 mt-1">No completed patient histories found matching that query.</p>
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">

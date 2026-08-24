@@ -5,7 +5,6 @@ const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5050/api',
 });
 
-// Add a request interceptor to attach the JWT token to headers if available
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('medsync_token');

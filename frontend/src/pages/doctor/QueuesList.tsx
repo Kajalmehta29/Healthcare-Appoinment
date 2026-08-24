@@ -83,7 +83,12 @@ export const DoctorQueuesList: React.FC = () => {
     if (!selectedApt || !clinicalNotes) return;
     setIsSubmitting(true);
     try {
-      await api.appointments.submitConsultation(selectedApt.id, { notes: clinicalNotes, medications: meds, followUp });
+      let finalMeds = [...meds];
+      if (medName && medDosage && medFreq && medDur) {
+        finalMeds.push({ name: medName, dosage: medDosage, frequency: medFreq, duration: medDur });
+      }
+
+      await api.appointments.submitConsultation(selectedApt.id, { notes: clinicalNotes, medications: finalMeds, followUp });
       setSelectedApt(null);
       await fetchQueues();
     } catch (err) {

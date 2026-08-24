@@ -178,28 +178,41 @@ export class AppointmentController {
       });
       if (!apt) return res.status(404).json({ error: 'Appointment not found' });
 
-      // 1. Save Consultation Notes to DB
-      await prisma.consultation.create({
-        data: {
+      await prisma.consultation.upsert({
+        where: { appointmentId },
+        update: { clinicalNotes: parsed.notes },
+        create: {
           appointmentId,
           clinicalNotes: parsed.notes,
         },
       });
 
-      // 2. Save Prescription & Medications
-      let prescriptionId = '';
-      if (parsed.medications.length > 0 || parsed.followUp) {
-        const presc = await prisma.prescription.create({
+      let presc = await prisma.prescription.findUnique({
+        where: { appointmentId },
+      });
+
+      if (presc) {
+        await prisma.prescription.update({
+          where: { appointmentId },
+          data: { followUpInstructions: parsed.followUp },
+        });
+
+        await prisma.medication.deleteMany({
+          where: { prescriptionId: presc.id },
+        });
+      } else {
+        presc = await prisma.prescription.create({
           data: {
             appointmentId,
             followUpInstructions: parsed.followUp,
           },
         });
-        prescriptionId = presc.id;
+      }
 
+      if (parsed.medications.length > 0) {
         await prisma.medication.createMany({
           data: parsed.medications.map(m => ({
-            prescriptionId: presc.id,
+            prescriptionId: presc!.id,
             name: m.name,
             dosage: m.dosage,
             frequency: m.frequency,
@@ -208,7 +221,6 @@ export class AppointmentController {
         });
       }
 
-      // 3. Queue Medication Reminder Jobs
       if (apt.patient && parsed.medications.length > 0) {
         for (const med of parsed.medications) {
           // Parse duration (e.g. "5 days" or just a number)
@@ -218,7 +230,6 @@ export class AppointmentController {
           if (med.frequency.toLowerCase().includes('2 times')) frequencyHours = 12;
           else if (med.frequency.toLowerCase().includes('3 times')) frequencyHours = 8;
 
-          // Dispatch reminder jobs in the queue
           const timesToSend = (daysNum * 24) / frequencyHours;
           for (let i = 1; i <= timesToSend; i++) {
             const delayTime = i * frequencyHours * 3600 * 1000; // delay in ms
@@ -241,8 +252,15 @@ export class AppointmentController {
       // 4. Trigger Post-visit AI translation (Failure resilient: if Gemini fails, consultation submission STILL succeeds)
       try {
         const aiSummary = await generatePostVisitSummary(parsed.notes, parsed.medications, parsed.followUp);
-        await prisma.aISummary.create({
-          data: {
+        await prisma.aISummary.upsert({
+          where: { appointmentId },
+          update: {
+            summaryText: aiSummary.summaryText,
+            medicationSchedule: aiSummary.medicationSchedule,
+            followUpSteps: aiSummary.followUpSteps,
+            status: 'SUCCESS',
+          },
+          create: {
             appointmentId,
             summaryText: aiSummary.summaryText,
             medicationSchedule: aiSummary.medicationSchedule,
@@ -253,8 +271,15 @@ export class AppointmentController {
       } catch (err) {
         console.error('Gemini post-visit summary creation failed:', err);
         // Fallback placeholder record
-        await prisma.aISummary.create({
-          data: {
+        await prisma.aISummary.upsert({
+          where: { appointmentId },
+          update: {
+            summaryText: 'Visit summary is currently being processed by AI.',
+            medicationSchedule: parsed.medications.map(m => `- ${m.name}: ${m.dosage}`).join('\n') || 'Review details with physician.',
+            followUpSteps: parsed.followUp || 'Return to clinic if symptoms worsen.',
+            status: 'FAILED',
+          },
+          create: {
             appointmentId,
             summaryText: 'Visit summary is currently being processed by AI.',
             medicationSchedule: parsed.medications.map(m => `- ${m.name}: ${m.dosage}`).join('\n') || 'Review details with physician.',
@@ -264,7 +289,6 @@ export class AppointmentController {
         });
       }
 
-      // 5. Complete appointment status
       await prisma.appointment.update({
         where: { id: appointmentId },
         data: { status: 'COMPLETED' },

@@ -30,16 +30,12 @@ if (REDIS_URL) {
   console.log('REDIS_URL is not set in environment. Running background jobs in in-memory simulator mode.');
 }
 
-/**
- * Queue jobs dispatcher
- */
 export const dispatchJob = async (
   queueName: 'email-retry' | 'medication-reminder' | 'appointment-reminder',
   jobName: string,
   data: any,
   opts?: { delay?: number; repeat?: any }
 ) => {
-  // If Redis & BullMQ are available, use them
   if (redisConnection) {
     try {
       if (queueName === 'email-retry' && emailRetryQueue) {

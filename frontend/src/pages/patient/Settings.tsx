@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
-import { CheckCircle, User as UserIcon, Lock, Phone, Mail, Settings2, ShieldCheck } from 'lucide-react';
+import { CheckCircle, User as UserIcon, Lock, Phone, Mail, Settings2, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export const PatientSettings: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -165,6 +165,67 @@ export const PatientSettings: React.FC = () => {
               {isLoading ? 'Saving account details...' : 'Save Profile Changes'}
             </button>
           </form>
+
+          {/* Google Calendar Integration Section */}
+          <div className="pt-6 border-t border-slate-150 space-y-4">
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">Google Calendar Integration</h4>
+              <p className="text-xs text-slate-500">Sync your booked appointments directly to your personal Google Calendar.</p>
+            </div>
+
+            {user?.isGoogleLinked ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-emerald-500 text-white rounded-full">
+                    <CheckCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800">Google Calendar Connected</p>
+                    <p className="text-[10px] text-emerald-600">Appointments will automatically sync to your Google Calendar.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={refreshProfile}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors flex items-center space-x-1"
+                >
+                  <RefreshCw className="h-3 w-3 animate-spin-hover" />
+                  <span>Refresh Status</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-amber-800">Google Calendar Disconnected</p>
+                  <p className="text-[10px] text-amber-600">To enable automatic Google Calendar event synchronization, link your Google account.</p>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const url = await api.auth.getGoogleAuthUrl();
+                        window.open(url, '_blank', 'width=600,height=600');
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to get authorization URL. Please make sure Google client credentials are set in the backend .env.');
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+                  >
+                    Link Google Calendar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refreshProfile}
+                    className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl transition-colors"
+                    title="Check Link Status"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

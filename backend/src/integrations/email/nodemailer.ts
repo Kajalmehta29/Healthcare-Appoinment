@@ -1,6 +1,5 @@
 import * as nodemailer from 'nodemailer';
 
-// Configure transporter
 const getTransporter = async () => {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT) || 587;
@@ -35,9 +34,6 @@ const getTransporter = async () => {
   }
 };
 
-/**
- * Core send helper
- */
 export const sendMail = async (to: string, subject: string, html: string): Promise<boolean> => {
   try {
     const transporter = await getTransporter();
@@ -54,7 +50,6 @@ export const sendMail = async (to: string, subject: string, html: string): Promi
     });
 
     console.log(`Email successfully sent! Message ID: ${info.messageId}`);
-    // If using Ethereal, log preview link
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
       console.log(`✉️ View Ethereal Email Preview: ${previewUrl}`);
@@ -66,9 +61,6 @@ export const sendMail = async (to: string, subject: string, html: string): Promi
   }
 };
 
-/**
- * Booking confirmation
- */
 export const sendBookingConfirmation = async (to: string, patientName: string, doctorName: string, date: string, time: string) => {
   const subject = 'Appointment Confirmation - Medsync';
   const html = `
@@ -83,9 +75,6 @@ export const sendBookingConfirmation = async (to: string, patientName: string, d
   return sendMail(to, subject, html);
 };
 
-/**
- * Appointment cancellation
- */
 export const sendCancellation = async (to: string, patientName: string, doctorName: string, date: string, time: string) => {
   const subject = 'Appointment Cancelled - Medsync';
   const html = `
@@ -98,9 +87,6 @@ export const sendCancellation = async (to: string, patientName: string, doctorNa
   return sendMail(to, subject, html);
 };
 
-/**
- * Doctor Leave affected notification
- */
 export const sendLeaveCancellation = async (to: string, patientName: string, doctorName: string, date: string, time: string) => {
   const subject = 'Urgent: Appointment Cancelled due to Doctor Leave';
   const html = `
@@ -114,9 +100,6 @@ export const sendLeaveCancellation = async (to: string, patientName: string, doc
   return sendMail(to, subject, html);
 };
 
-/**
- * Reschedule notification
- */
 export const sendRescheduleNotification = async (to: string, patientName: string, doctorName: string, oldDate: string, newDate: string, newTime: string) => {
   const subject = 'Appointment Rescheduled - Medsync';
   const html = `
@@ -130,9 +113,6 @@ export const sendRescheduleNotification = async (to: string, patientName: string
   return sendMail(to, subject, html);
 };
 
-/**
- * Appointment Reminder
- */
 export const sendAppointmentReminder = async (to: string, patientName: string, doctorName: string, date: string, time: string) => {
   const subject = 'Reminder: Upcoming Appointment - Medsync';
   const html = `
@@ -146,9 +126,6 @@ export const sendAppointmentReminder = async (to: string, patientName: string, d
   return sendMail(to, subject, html);
 };
 
-/**
- * Medication Reminder
- */
 export const sendMedicationReminder = async (to: string, patientName: string, medicationName: string, dosage: string, instructions: string) => {
   const subject = `Medication Reminder: ${medicationName}`;
   const html = `

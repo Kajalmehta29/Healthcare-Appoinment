@@ -112,9 +112,24 @@ export const createCalendarEvent = async (
   }
 ): Promise<string | null> => {
   try {
-    const auth = await getAuthenticatedClient(userId);
+    let auth = await getAuthenticatedClient(userId);
     if (!auth) {
-      console.warn(`Google Calendar client not authenticated for user ${userId}. Skipping event creation.`);
+      // Fallback: Check if the other participant of the appointment has linked their calendar
+      const apt = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: { doctor: true, patient: true },
+      });
+      if (apt) {
+        const otherUserId = userId === apt.doctor?.userId ? apt.patient?.userId : apt.doctor?.userId;
+        if (otherUserId) {
+          console.log(`Google Calendar client not authenticated for user ${userId}. Trying other participant ${otherUserId}...`);
+          auth = await getAuthenticatedClient(otherUserId);
+        }
+      }
+    }
+
+    if (!auth) {
+      console.warn(`No Google Calendar client authenticated for appointment ${appointmentId}. Skipping event creation.`);
       return null;
     }
 
@@ -162,7 +177,19 @@ export const updateCalendarEvent = async (
     });
     if (!calendarEvent) return false;
 
-    const auth = await getAuthenticatedClient(userId);
+    let auth = await getAuthenticatedClient(userId);
+    if (!auth) {
+      const apt = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: { doctor: true, patient: true },
+      });
+      if (apt) {
+        const otherUserId = userId === apt.doctor?.userId ? apt.patient?.userId : apt.doctor?.userId;
+        if (otherUserId) {
+          auth = await getAuthenticatedClient(otherUserId);
+        }
+      }
+    }
     if (!auth) return false;
 
     const calendar = google.calendar({ version: 'v3', auth });
@@ -193,7 +220,19 @@ export const deleteCalendarEvent = async (appointmentId: string, userId: string)
     });
     if (!calendarEvent) return false;
 
-    const auth = await getAuthenticatedClient(userId);
+    let auth = await getAuthenticatedClient(userId);
+    if (!auth) {
+      const apt = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        include: { doctor: true, patient: true },
+      });
+      if (apt) {
+        const otherUserId = userId === apt.doctor?.userId ? apt.patient?.userId : apt.doctor?.userId;
+        if (otherUserId) {
+          auth = await getAuthenticatedClient(otherUserId);
+        }
+      }
+    }
     if (!auth) return false;
 
     const calendar = google.calendar({ version: 'v3', auth });

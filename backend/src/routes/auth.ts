@@ -5,13 +5,11 @@ import { getGoogleAuthUrl, handleGoogleCallback } from '../integrations/google-c
 
 const router = Router();
 
-// Standard Auth Paths
 router.post('/login', AuthController.login);
 router.post('/register', AuthController.register);
 router.get('/me', authenticateToken, AuthController.me);
 router.put('/profile', authenticateToken, AuthController.updateProfile);
 
-// Google Calendar OAuth Paths
 router.get('/google/url', authenticateToken, (req: any, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const url = getGoogleAuthUrl(req.user.id);

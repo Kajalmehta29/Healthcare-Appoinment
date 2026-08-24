@@ -17,20 +17,17 @@ export class AppointmentService {
     patientId: string
   ) {
     return await prisma.$transaction(async (tx) => {
-      // 1. Fetch Doctor details & schedule
       const doctor = await tx.doctorProfile.findUnique({
         where: { id: doctorId },
         include: { workingHours: true },
       });
       if (!doctor) throw new Error('DOCTOR_NOT_FOUND');
 
-      // 2. Check if doctor is on leave
       const leaves: string[] = JSON.parse(doctor.leaveDays || '[]');
       if (leaves.includes(date)) {
         throw new Error('DOCTOR_ON_LEAVE');
       }
 
-      // 3. Verify schedule limits
       const dateObj = new Date(date);
       const dayOfWeek = dateObj.getDay();
       const schedule = doctor.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
@@ -38,12 +35,10 @@ export class AppointmentService {
         throw new Error('NOT_WORKING_THIS_DAY');
       }
 
-      // Compare slot bounds
       if (startTime < schedule.startTime || endTime > schedule.endTime) {
         throw new Error('OUTSIDE_WORKING_HOURS');
       }
 
-      // 4. Verify no double booking exists
       const conflict = await tx.appointment.findFirst({
         where: {
           doctorId,
@@ -100,7 +95,6 @@ export class AppointmentService {
         throw new Error('HOLD_EXPIRED');
       }
 
-      // 1. Confirm appointment
       const updated = await tx.appointment.update({
         where: { id: appointmentId },
         data: {
@@ -113,8 +107,6 @@ export class AppointmentService {
       return updated;
     });
 
-    // 2. Submit Symptoms with asynchronous AI generation
-    // Create database submission with PENDING AI status
     const submission = await prisma.symptomSubmission.create({
       data: {
         appointmentId,
@@ -140,7 +132,6 @@ export class AppointmentService {
       });
     } catch (err) {
       console.error('Gemini Pre-visit analysis failed during confirmation:', err);
-      // Fallback local assessment
       const isUrgent = symptomsText.toLowerCase().includes('chest pain') || symptomsText.toLowerCase().includes('breathing');
       const urgency = isUrgent ? 'High' : (symptomsText.length > 50 ? 'Medium' : 'Low');
       await prisma.symptomSubmission.update({
@@ -158,7 +149,6 @@ export class AppointmentService {
       });
     }
 
-    // 3. Dispatch Background Notification Jobs
     if (result.patient) {
       const notifPatient = await prisma.notification.create({
         data: {
@@ -199,7 +189,6 @@ export class AppointmentService {
       time: result.startTime,
     });
 
-    // 4. Create Google Calendar Event
     if (result.patient && result.doctor) {
       const startIso = new Date(`${result.date}T${result.startTime}:00`).toISOString();
       const endIso = new Date(`${result.date}T${result.endTime}:00`).toISOString();
@@ -213,7 +202,6 @@ export class AppointmentService {
       });
     }
 
-    // 5. Schedule 24h Reminder Job
     const aptTime = new Date(`${result.date}T${result.startTime}:00`).getTime();
     const reminderDelay = aptTime - Date.now() - 24 * 3600 * 1000;
     if (reminderDelay > 0 && result.patient) {
@@ -251,7 +239,6 @@ export class AppointmentService {
     const oldDate = original.date;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Fetch Doctor working hours & leave
       const doctor = await tx.doctorProfile.findUnique({
         where: { id: original.doctorId },
         include: { workingHours: true },
@@ -263,7 +250,6 @@ export class AppointmentService {
         throw new Error('DOCTOR_ON_LEAVE');
       }
 
-      // Check working hours
       const dateObj = new Date(newDate);
       const dayOfWeek = dateObj.getDay();
       const schedule = doctor.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
@@ -273,7 +259,6 @@ export class AppointmentService {
         throw new Error('OUTSIDE_WORKING_HOURS');
       }
 
-      // 2. Check for double booking conflicts
       const conflict = await tx.appointment.findFirst({
         where: {
           id: { not: appointmentId },
@@ -292,7 +277,6 @@ export class AppointmentService {
 
       if (conflict) throw new Error('SLOT_NOT_AVAILABLE');
 
-      // 3. Update appointment slot
       return await tx.appointment.update({
         where: { id: appointmentId },
         data: {
@@ -305,14 +289,12 @@ export class AppointmentService {
       });
     });
 
-    // 4. Sync Google Calendar Update
     if (result.doctor) {
       const startIso = new Date(`${newDate}T${newStartTime}:00`).toISOString();
       const endIso = new Date(`${newDate}T${newEndTime}:00`).toISOString();
       await updateCalendarEvent(appointmentId, result.doctor.userId, startIso, endIso);
     }
 
-    // 5. Send reschedule email notification
     if (result.patient) {
       const notif = await prisma.notification.create({
         data: {
@@ -353,12 +335,10 @@ export class AppointmentService {
       data: { status: 'CANCELLED' },
     });
 
-    // Google Calendar Event Removal
     if (apt.doctor) {
       await deleteCalendarEvent(appointmentId, apt.doctor.userId);
     }
 
-    // Create notifications & trigger email jobs
     if (apt.patient) {
       const notifPatient = await prisma.notification.create({
         data: {

@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { ToastContainer } from './components/ToastContainer';
 import { PatientDashboard } from './pages/patient/Dashboard';
 import { PatientHistory } from './pages/patient/History';
 import { BookAppointment } from './pages/patient/BookAppointment';
@@ -51,10 +53,12 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ToastContainer />
         <Routes>
           {/* Public Authentication Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* Protected Patient Routes */}
           <Route 

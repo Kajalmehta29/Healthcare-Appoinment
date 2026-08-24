@@ -176,7 +176,6 @@ export class DoctorService {
       },
     });
 
-    // Cancel overlapping bookings
     const overlapping = await prisma.appointment.findMany({
       where: {
         doctorId: id,
@@ -192,10 +191,8 @@ export class DoctorService {
         data: { status: 'CANCELLED_BY_DOCTOR_LEAVE' },
       });
 
-      // Clear Google Calendar Event
       await deleteCalendarEvent(apt.id, doc.userId);
 
-      // Create Patient Notification
       if (apt.patient) {
         const notif = await prisma.notification.create({
           data: {
@@ -252,7 +249,6 @@ export class DoctorService {
       },
     });
 
-    // Cancel overlapping bookings
     const overlapping = await prisma.appointment.findMany({
       where: {
         doctorId: id,
@@ -268,10 +264,8 @@ export class DoctorService {
         data: { status: 'CANCELLED_BY_DOCTOR_LEAVE' },
       });
 
-      // Clear Google Calendar Event
       await deleteCalendarEvent(apt.id, doc.userId);
 
-      // Create Patient Notification
       if (apt.patient) {
         const notif = await prisma.notification.create({
           data: {

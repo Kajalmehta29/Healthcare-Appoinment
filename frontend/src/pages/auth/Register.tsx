@@ -139,6 +139,11 @@ export const Register: React.FC = () => {
               Sign In
             </Link>
           </p>
+          <div className="mt-4">
+            <Link to="/privacy" className="text-xs text-slate-400 dark:text-slate-550 hover:underline">
+              Privacy Policy & Terms
+            </Link>
+          </div>
         </div>
       </div>
     </div>

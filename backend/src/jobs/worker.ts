@@ -13,9 +13,6 @@ import {
 const prisma = new PrismaClient();
 const REDIS_URL = process.env.REDIS_URL || '';
 
-/**
- * Main Job Execution Router (shared between BullMQ and In-Memory Simulator)
- */
 export const processJob = async (queueName: string, jobName: string, data: any) => {
   console.log(`[WORKER] Processing job: ${jobName} on queue: ${queueName}`);
 
@@ -39,9 +36,6 @@ export const processJob = async (queueName: string, jobName: string, data: any) 
   }
 };
 
-/**
- * Handle Email Send / Retry
- */
 const handleEmailRetryJob = async (jobName: string, data: any) => {
   const { notificationId, type, recipientEmail, patientName, doctorName, date, time, oldDate, newDate, newTime } = data;
   let success = false;
@@ -80,25 +74,18 @@ const handleEmailRetryJob = async (jobName: string, data: any) => {
   }
 };
 
-/**
- * Handle Medication reminder alerts
- */
 const handleMedicationReminderJob = async (jobName: string, data: any) => {
   const { recipientEmail, patientName, medicationName, dosage, instructions } = data;
   const success = await sendMedicationReminder(recipientEmail, patientName, medicationName, dosage, instructions);
   if (!success) throw new Error('Medication reminder delivery failed.');
 };
 
-/**
- * Handle Appointment reminders
- */
 const handleAppointmentReminderJob = async (jobName: string, data: any) => {
   const { recipientEmail, patientName, doctorName, date, time } = data;
   const success = await sendAppointmentReminder(recipientEmail, patientName, doctorName, date, time);
   if (!success) throw new Error('Appointment reminder delivery failed.');
 };
 
-// Start BullMQ workers if Redis is available
 if (REDIS_URL) {
   try {
     const connection = new Redis(REDIS_URL, { maxRetriesPerRequest: null });

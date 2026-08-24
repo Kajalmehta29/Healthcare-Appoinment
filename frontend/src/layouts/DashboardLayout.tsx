@@ -47,7 +47,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
     localStorage.setItem('medsync_theme', theme);
   }, [theme]);
 
-  // Real-time notifications state filtered by user email
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const fetchNotifs = () => {
@@ -106,7 +105,6 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
     );
   }
 
-  // Sidebar mapping based on Roles
   let sidebarItems: SidebarItem[] = [];
 
   if (user.role === 'PATIENT') {
@@ -160,7 +158,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:flex-col md:w-20 bg-slate-900/95 backdrop-blur-md text-white flex-shrink-0 border-r border-white/10 transition-all duration-300 overflow-x-hidden">
+      <aside className="relative z-30 hidden md:flex md:flex-col md:w-20 bg-slate-900/95 backdrop-blur-md text-white flex-shrink-0 border-r border-white/10 transition-all duration-300">
         <div className="h-16 flex items-center justify-center bg-slate-955/80 border-b border-white/5">
           <Link to="/" className="hover:scale-110 transition-transform duration-200" title="MedSync Home">
             <Activity className="h-6 w-6 text-brand-500 animate-pulse" />
@@ -168,7 +166,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode; allowedRoles
         </div>
         
         {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-6 space-y-3 overflow-y-auto overflow-x-hidden flex flex-col items-center">
+        <nav className="flex-1 px-3 py-6 space-y-3 flex flex-col items-center">
           {sidebarItems.map((item) => {
             const active = location.pathname === item.path;
             return (
